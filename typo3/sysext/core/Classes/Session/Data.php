@@ -38,9 +38,9 @@ class Data {
 	protected $content = array();
 
 	/**
-	 * @var integer $tstamp last storage time (Unix epoche)
+	 * @var integer $timeout end of session lifetime (Unix epoche)
 	 */
-	protected $tstamp = 0;
+	protected $timeout = 0;
 
 	/**
 	 * @var string $identifier
@@ -50,49 +50,43 @@ class Data {
 	/**
 	 * @param array $content
 	 */
-	public function setContent($content)
-	{
+	public function setContent($content) {
 		$this->content = $content;
 	}
 
 	/**
 	 * @return array
 	 */
-	public function getContent()
-	{
+	public function getContent() {
 		return $this->content;
 	}
 
 	/**
 	 * @param string $identifier
 	 */
-	public function setIdentifier($identifier)
-	{
+	public function setIdentifier($identifier) {
 		$this->identifier = $identifier;
 	}
 
 	/**
 	 * @return string
 	 */
-	public function getIdentifier()
-	{
+	public function getIdentifier() {
 		return $this->identifier;
 	}
 
 	/**
-	 * @param int $tstamp
+	 * @param int $timestamp
 	 */
-	public function setTstamp($tstamp)
-	{
-		$this->tstamp = $tstamp;
+	public function setTimeout($timestamp) {
+		$this->timeout = intval($timestamp);
 	}
 
 	/**
 	 * @return int
 	 */
-	public function getTstamp()
-	{
-		return $this->tstamp;
+	public function getTimeout() {
+		return $this->timeout;
 	}
 
 }
