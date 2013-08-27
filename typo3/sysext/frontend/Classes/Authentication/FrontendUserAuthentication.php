@@ -27,6 +27,9 @@ namespace TYPO3\CMS\Frontend\Authentication;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
+use TYPO3\CMS\Core\Session;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+
 /**
  * Extension class for Front End User Authentication.
  *
@@ -109,6 +112,9 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 
 	protected $sessionDataTimestamp = NULL;
 
+	/** @var  \TYPO3\CMS\Core\Session\StorageInterface $sessionStorage */
+	protected $sessionStorage;
+
 	/**
 	 * Default constructor.
 	 */
@@ -137,6 +143,14 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 		$this->sendNoCacheHeaders = FALSE;
 		$this->getFallBack = TRUE;
 		$this->getMethodEnabled = TRUE;
+
+		/** @var Session\StorageInterface $storage */
+		$storage = GeneralUtility::makeInstanceService('sessionStorage', 'frontend');
+		if (is_object($storage)) {
+			$this->sessionStorage = $storage;
+		} else {
+			GeneralUtility::devLog('Could not instantiate session StorageInterface.', 'frontend', $storage);
+		}
 	}
 
 	/**
@@ -367,13 +381,22 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	public function fetchSessionData() {
 		// Gets SesData if any AND if not already selected by session fixation check in ->isExistingSessionRecord()
 		if ($this->id && !count($this->sesData)) {
-			$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('*', 'fe_session_data', 'hash = :hash');
-			$statement->execute(array(':hash' => $this->id));
-			if (($sesDataRow = $statement->fetch()) !== FALSE) {
-				$this->sesData = unserialize($sesDataRow['content']);
-				$this->sessionDataTimestamp = $sesDataRow['tstamp'];
+			if ($this->sessionStorage) {
+				/** @var Session\Data $sessionData */
+				$sessionData = $this->sessionStorage->get($this->id);
+				if ($sessionData instanceof Session\Data) {
+					$this->sesData = $sessionData->getContent();
+					$this->sessionDataTimestamp = $sessionData->getTimeout() - $this->sessionDataLifetime;
+				}
+			} else {
+				$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('*', 'fe_session_data', 'hash = :hash');
+				$statement->execute(array(':hash' => $this->id));
+				if (($sesDataRow = $statement->fetch()) !== FALSE) {
+					$this->sesData = unserialize($sesDataRow['content']);
+					$this->sessionDataTimestamp = $sesDataRow['tstamp'];
+				}
+				$statement->free();
 			}
-			$statement->free();
 		}
 	}
 
@@ -396,23 +419,37 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 			if (empty($this->sesData)) {
 				// Remove session-data
 				$this->removeSessionData();
-			} elseif ($this->sessionDataTimestamp === NULL) {
-				// Write new session-data
-				$insertFields = array(
-					'hash' => $this->id,
-					'content' => serialize($this->sesData),
-					'tstamp' => $GLOBALS['EXEC_TIME']
-				);
-				$this->sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
-				$GLOBALS['TYPO3_DB']->exec_INSERTquery('fe_session_data', $insertFields);
 			} else {
-				// Update session data
-				$updateFields = array(
-					'content' => serialize($this->sesData),
-					'tstamp' => $GLOBALS['EXEC_TIME']
-				);
-				$this->sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
-				$GLOBALS['TYPO3_DB']->exec_UPDATEquery('fe_session_data', 'hash=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, 'fe_session_data'), $updateFields);
+				if ($this->sessionStorage) {
+					$sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
+					/** @var Session\Data $sessionData */
+					$sessionData = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
+					$sessionData->setIdentifier($this->id);
+					$sessionData->setContent($this->sesData);
+					$sessionData->setTimeout($sessionDataTimestamp + $this->sessionDataLifetime);
+					if ($this->sessionStorage->put($sessionData)) {
+						$this->sessionDataTimestamp = $sessionDataTimestamp;
+					}
+				} else {
+					if ($this->sessionDataTimestamp === NULL) {
+						// Write new session-data
+						$insertFields = array(
+							'hash' => $this->id,
+							'content' => serialize($this->sesData),
+							'tstamp' => $GLOBALS['EXEC_TIME']
+						);
+						$this->sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
+						$GLOBALS['TYPO3_DB']->exec_INSERTquery('fe_session_data', $insertFields);
+					} else {
+						// Update session data
+						$updateFields = array(
+							'content' => serialize($this->sesData),
+							'tstamp' => $GLOBALS['EXEC_TIME']
+						);
+						$this->sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
+						$GLOBALS['TYPO3_DB']->exec_UPDATEquery('fe_session_data', 'hash=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, 'fe_session_data'), $updateFields);
+					}
+				}
 			}
 		}
 	}
@@ -423,7 +460,11 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	 * @return void
 	 */
 	public function removeSessionData() {
-		$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'hash=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, 'fe_session_data'));
+		if ($this->sessionStorage) {
+			$this->sessionStorage->delete($this->id);
+		} else {
+			$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'hash=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, 'fe_session_data'));
+		}
 	}
 
 	/**
@@ -434,7 +475,11 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	 */
 	public function gc() {
 		$timeoutTimeStamp = intval($GLOBALS['EXEC_TIME'] - $this->sessionDataLifetime);
-		$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'tstamp < ' . $timeoutTimeStamp);
+		if ($this->sessionStorage) {
+			$this->sessionStorage->collectGarbage($timeoutTimeStamp);
+		} else {
+			$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'tstamp < ' . $timeoutTimeStamp);
+		}
 		parent::gc();
 	}
 
@@ -572,15 +617,23 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 		$count = parent::isExistingSessionRecord($id);
 		// Check if there are any fe_session_data records for the session ID the client claims to have
 		if ($count == FALSE) {
-			$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('content,tstamp', 'fe_session_data', 'hash = :hash');
-			$res = $statement->execute(array(':hash' => $id));
-			if ($res !== FALSE) {
-				if ($sesDataRow = $statement->fetch()) {
+// TODO tk 2013-08-27 move session storage variant to parent method
+			if ($this->sessionStorage) {
+				$sessionData = $this->sessionStorage->get($id);
+				if ($sessionData instanceof Session\Data) {
 					$count = TRUE;
-					$this->sesData = unserialize($sesDataRow['content']);
-					$this->sessionDataTimestamp = $sesDataRow['tstamp'];
 				}
-				$statement->free();
+			} else {
+				$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('content,tstamp', 'fe_session_data', 'hash = :hash');
+				$res = $statement->execute(array(':hash' => $id));
+				if ($res !== FALSE) {
+					if ($sesDataRow = $statement->fetch()) {
+						$count = TRUE;
+						$this->sesData = unserialize($sesDataRow['content']);
+						$this->sessionDataTimestamp = $sesDataRow['tstamp'];
+					}
+					$statement->free();
+				}
 			}
 		}
 		return $count;
