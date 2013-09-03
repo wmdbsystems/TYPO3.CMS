@@ -29,6 +29,7 @@ namespace TYPO3\CMS\Core\Authentication;
 
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\HttpUtility;
+use TYPO3\CMS\Core\Session;
 
 /**
  * Authentication of users in TYPO3
@@ -346,6 +347,11 @@ abstract class AbstractUserAuthentication {
 	public $writeDevLog = FALSE;
 
 	/**
+	 * @var Session\StorageInterface $sessionStorage
+	 */
+	protected $sessionStorage;
+
+	/**
 	 * Starts a user session
 	 * Typical configurations will:
 	 * a) check if session cookie was set and if not, set one,
@@ -383,6 +389,30 @@ abstract class AbstractUserAuthentication {
 		if ($this->writeDevLog) {
 			GeneralUtility::devLog('## Beginning of auth logging.', 'TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication');
 		}
+
+		// initialize storage backend
+		if (!$this->sessionStorage) {
+			$subType = NULL;
+			switch ($this->session_table) {
+				case 'fe_sessions':
+					$subType = 'frontend';
+					break;
+				case 'be_sessions':
+					$subType = 'backend';
+					break;
+				default:
+					// no fallback
+					break;
+			}
+			if ($subType) {
+				/** @var Session\StorageInterface $storage */
+				$storage = GeneralUtility::makeInstanceService('sessionStorage', $subType);
+				if (is_object($storage)) {
+					$this->sessionStorage = $storage;
+				}
+			}
+		}
+
 		// Init vars.
 		$mode = '';
 		$this->newSessionID = FALSE;
@@ -851,12 +881,18 @@ abstract class AbstractUserAuthentication {
 		if ($this->writeDevLog) {
 			GeneralUtility::devLog('Create session ses_id = ' . $this->id, 'TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication');
 		}
-		// Delete session entry first
-		$GLOBALS['TYPO3_DB']->exec_DELETEquery($this->session_table, 'ses_id = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table) . '
-						AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table));
-		// Re-create session entry
 		$insertFields = $this->getNewSessionRecord($tempuser);
-		$GLOBALS['TYPO3_DB']->exec_INSERTquery($this->session_table, $insertFields);
+		if ($this->sessionStorage) {
+			$this->sessionStorage->delete($this->id);
+			$session = $this->createSession($insertFields);
+			$this->sessionStorage->put($session);
+		} else {
+			// Delete session entry first
+			$GLOBALS['TYPO3_DB']->exec_DELETEquery($this->session_table, 'ses_id = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table) . '
+						AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table));
+			// Re-create session entry
+			$GLOBALS['TYPO3_DB']->exec_INSERTquery($this->session_table, $insertFields);
+		}
 		// Updating lastLogin_column carrying information about last login.
 		if ($this->lastLogin_column) {
 			$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->user_table, $this->userid_column . '=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($tempuser[$this->userid_column], $this->user_table), array($this->lastLogin_column => $GLOBALS['EXEC_TIME']));
@@ -883,6 +919,21 @@ abstract class AbstractUserAuthentication {
 	}
 
 	/**
+	 * Factory method for session data objects
+	 *
+	 * @param array $payload opt. contents of session
+	 * @return Session\Data
+	 */
+	protected function createSession($payload = array()) {
+		/** @var Session\Data $session */
+		$session = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
+		$session->setIdentifier($this->id);
+		$session->setContent($payload);
+		$session->setTimeout($GLOBALS['EXEC_TIME'] + $this->auth_timeout_field);
+		return $session;
+	}
+
+	/**
 	 * Read the user session from db.
 	 *
 	 * @param boolean $skipSessionUpdate
@@ -890,41 +941,95 @@ abstract class AbstractUserAuthentication {
 	 * @todo Define visibility
 	 */
 	public function fetchUserSession($skipSessionUpdate = FALSE) {
-		$user = '';
+		$user = NULL;
 		if ($this->writeDevLog) {
 			GeneralUtility::devLog('Fetch session ses_id = ' . $this->id, 'TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication');
 		}
-		// Fetch the user session from the DB
-		$statement = $this->fetchUserSessionFromDB();
-		$user = FALSE;
-		if ($statement) {
-			$statement->execute();
-			$user = $statement->fetch();
-			$statement->free();
-		}
-		if ($statement && $user) {
-			// A user was found
-			if (\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field)) {
-				// Get timeout from object
-				$timeout = intval($this->auth_timeout_field);
-			} else {
-				// Get timeout-time from usertable
-				$timeout = intval($user[$this->auth_timeout_field]);
-			}
-			// If timeout > 0 (TRUE) and currenttime has not exceeded the latest sessions-time plus the timeout in seconds then accept user
-			// Option later on: We could check that last update was at least x seconds ago in order not to update twice in a row if one script redirects to another...
-			if ($timeout > 0 && $GLOBALS['EXEC_TIME'] < $user['ses_tstamp'] + $timeout) {
-				if (!$skipSessionUpdate) {
-					$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->session_table, 'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table) . '
-												AND ses_name=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table), array('ses_tstamp' => $GLOBALS['EXEC_TIME']));
-					// Make sure that the timestamp is also updated in the array
-					$user['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
+		if ($this->sessionStorage) {
+			// session storage has to check timeout of session!
+			/** @var Session\Data $session */
+			$session = $this->sessionStorage->get($this->id);
+			if ($session) {
+				if ($session->getTimeout() != $GLOBALS['EXEC_TIME']) {
+					// update timeout of existing sessions
+					$this->auth_timeout_field = $session->getTimeout() - $GLOBALS['EXEC_TIME'];
 				}
-			} else {
-				// Delete any user set...
-				$this->logoff();
+				$sessionData = $session->getContent();
+				if (
+					(
+						$sessionData['ses_iplock'] === '[DISABLED]'
+						|| $sessionData['ses_iplock'] === $this->ipLockClause_remoteIPNumber($this->lockIP)
+					)
+					&& (
+						(
+							$GLOBALS['CLIENT']['BROWSER'] === 'flash'
+							&& GeneralUtility::_GP('vC') === $this->veriCode()
+						)
+						|| intval($sessionData['ses_hashlock']) === $this->hashLockClause_getHashInt()
+					)
+				) {
+					$user = $GLOBALS['TYPO3_DB']->exec_SELECTgetSingleRow(
+						'*',
+						$this->user_table,
+						$this->userid_column . '=' . intval($sessionData['ses_userid'])
+							. ' ' . $this->user_where_clause()
+					);
+					if ($user) {
+						// merge session data into user array
+						$user = array_merge(
+							$user,
+							$sessionData
+						);
+						if (\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field)) {
+							// Get timeout from object
+							$timeout = intval($this->auth_timeout_field);
+						} else {
+							// Get timeout-time from user data
+							$timeout = intval($user[$this->auth_timeout_field]);
+						}
+						if ($timeout > 0 && !$skipSessionUpdate) {
+							$session->setTimeout($GLOBALS['EXEC_TIME'] + $timeout);
+							$this->sessionStorage->put($session);
+							$user['ses_tstamp'] = $session->getTimeout();
+						}
+					}
+				}
 			}
 		} else {
+
+			// Fetch the user session from the DB
+			$statement = $this->fetchUserSessionFromDB();
+			$user = FALSE;
+			if ($statement) {
+				$statement->execute();
+				$user = $statement->fetch();
+				$statement->free();
+			}
+			if ($user) {
+				// A user was found
+				if (\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field)) {
+					// Get timeout from object
+					$timeout = intval($this->auth_timeout_field);
+				} else {
+					// Get timeout-time from usertable
+					$timeout = intval($user[$this->auth_timeout_field]);
+				}
+				// If timeout > 0 (TRUE) and currenttime has not exceeded the latest sessions-time plus the timeout in seconds then accept user
+				// Option later on: We could check that last update was at least x seconds ago in order not to update twice in a row if one script redirects to another...
+				if ($timeout > 0 && $GLOBALS['EXEC_TIME'] < $user['ses_tstamp'] + $timeout) {
+					if (!$skipSessionUpdate) {
+						$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->session_table, 'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table) . '
+												AND ses_name=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table), array('ses_tstamp' => $GLOBALS['EXEC_TIME']));
+						// Make sure that the timestamp is also updated in the array
+						$user['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
+					}
+				} else {
+					// Delete any user set...
+					$this->logoff();
+				}
+			}
+		}
+		if (!$user) {
 			// Delete any user set...
 			$this->logoff();
 		}
@@ -953,8 +1058,15 @@ abstract class AbstractUserAuthentication {
 				}
 			}
 		}
-		$GLOBALS['TYPO3_DB']->exec_DELETEquery($this->session_table, 'ses_id = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table) . '
-						AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table));
+		if ($this->sessionStorage) {
+			$this->sessionStorage->delete($this->id);
+		} else {
+			$GLOBALS['TYPO3_DB']->exec_DELETEquery(
+				$this->session_table,
+				'ses_id = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, $this->session_table)
+					. 'AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table)
+			);
+		}
 		$this->user = '';
 		// Hook for post-processing the logoff() method, requested and implemented by andreas.otto@dkd.de:
 		if (is_array($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_userauth.php']['logoff_post_processing'])) {
@@ -976,11 +1088,16 @@ abstract class AbstractUserAuthentication {
 	 * @todo Define visibility
 	 */
 	public function isExistingSessionRecord($id) {
-		$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('COUNT(*)', $this->session_table, 'ses_id = :ses_id');
-		$statement->execute(array(':ses_id' => $id));
-		$row = $statement->fetch(\TYPO3\CMS\Core\Database\PreparedStatement::FETCH_NUM);
-		$statement->free();
-		return $row[0] ? TRUE : FALSE;
+		if ($this->sessionStorage) {
+			$sessionData = $this->sessionStorage->get($id);
+			return ($sessionData instanceof Session\Data);
+		} else {
+			$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('COUNT(*)', $this->session_table, 'ses_id = :ses_id');
+			$statement->execute(array(':ses_id' => $id));
+			$row = $statement->fetch(\TYPO3\CMS\Core\Database\PreparedStatement::FETCH_NUM);
+			$statement->free();
+			return $row[0] ? TRUE : FALSE;
+		}
 	}
 
 	/*************************
@@ -1225,7 +1342,16 @@ abstract class AbstractUserAuthentication {
 		if ($this->writeDevLog) {
 			GeneralUtility::devLog('setAndSaveSessionData: ses_id = ' . $this->user['ses_id'], 'TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication');
 		}
-		$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->session_table, 'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->user['ses_id'], $this->session_table), array('ses_data' => $this->user['ses_data']));
+		if ($this->sessionStorage) {
+			/** @var Session\Data $session */
+			$session = $this->sessionStorage->get($this->id);
+			$content = $session->getContent();
+			$content['ses_data'] = $this->user['ses_data'];
+			$session->setContent($content);
+			$this->sessionStorage->put($session);
+		} else {
+			$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->session_table, 'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->user['ses_id'], $this->session_table), array('ses_data' => $this->user['ses_data']));
+		}
 	}
 
 	/*************************
@@ -1387,7 +1513,11 @@ abstract class AbstractUserAuthentication {
 	 * @todo Define visibility
 	 */
 	public function gc() {
-		$GLOBALS['TYPO3_DB']->exec_DELETEquery($this->session_table, 'ses_tstamp < ' . intval(($GLOBALS['EXEC_TIME'] - $this->gc_time)) . ' AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table));
+		if ($this->sessionStorage) {
+			$this->sessionStorage->collectGarbage();
+		} else {
+			$GLOBALS['TYPO3_DB']->exec_DELETEquery($this->session_table, 'ses_tstamp < ' . intval(($GLOBALS['EXEC_TIME'] - $this->gc_time)) . ' AND ses_name = ' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->name, $this->session_table));
+		}
 	}
 
 	/**

@@ -36,6 +36,8 @@ interface StorageInterface {
 	/**
 	 * Fetch session data
 	 *
+	 * This method (or its delegates) has to check the timeout value!
+	 *
 	 * @param string $identifier the session ID
 	 * @return Data session data object
 	 */
