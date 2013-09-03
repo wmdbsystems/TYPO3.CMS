@@ -929,7 +929,11 @@ abstract class AbstractUserAuthentication {
 		$session = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
 		$session->setIdentifier($this->id);
 		$session->setContent($payload);
-		$session->setTimeout($GLOBALS['EXEC_TIME'] + $this->auth_timeout_field);
+		// use short fallback timeout, will be overwritten when session is used, see fetchUserSession()
+		$session->setTimeout(
+			$GLOBALS['EXEC_TIME']
+			+ (\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field) ? intval($this->auth_timeout_field) : 10)
+		);
 		return $session;
 	}
 
@@ -950,10 +954,6 @@ abstract class AbstractUserAuthentication {
 			/** @var Session\Data $session */
 			$session = $this->sessionStorage->get($this->id);
 			if ($session) {
-				if ($session->getTimeout() != $GLOBALS['EXEC_TIME']) {
-					// update timeout of existing sessions
-					$this->auth_timeout_field = $session->getTimeout() - $GLOBALS['EXEC_TIME'];
-				}
 				$sessionData = $session->getContent();
 				if (
 					(
@@ -989,6 +989,9 @@ abstract class AbstractUserAuthentication {
 						}
 						if ($timeout > 0 && !$skipSessionUpdate) {
 							$session->setTimeout($GLOBALS['EXEC_TIME'] + $timeout);
+							$content = $session->getContent();
+							$content['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
+							$session->setContent($content);
 							$this->sessionStorage->put($session);
 							$user['ses_tstamp'] = $session->getTimeout();
 						}
