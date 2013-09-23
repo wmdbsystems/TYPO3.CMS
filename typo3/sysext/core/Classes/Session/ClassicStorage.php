@@ -1,4 +1,5 @@
 <?php
+namespace TYPO3\CMS\Core\Session;
 
 /***************************************************************
  *  Copyright notice
@@ -23,12 +24,10 @@
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-namespace TYPO3\CMS\Core\Session;
-
 use \TYPO3\CMS\Core\Utility\GeneralUtility;
 
 
-class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService implements StorageInterface {
+abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService implements StorageInterface {
 
 	/**
 	 * @var \TYPO3\CMS\Core\Database\DatabaseConnection
@@ -84,31 +83,25 @@ class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService implements 
 	 * @return bool|void
 	 */
 	public function init() {
-		switch($this->info['requestedServiceSubType']) {
-			case 'frontend':
-				$subtype = $this->info['requestedServiceSubType'];
-				$this->authentication = $GLOBALS['TSFE']->fe_user;
-				break;
-			case 'backend':
-				$subtype = $this->info['requestedServiceSubType'];
-				$this->authentication = $GLOBALS['BE_USER'];
-				break;
-			default:
-				return FALSE;
-		}
-		$this->session_table = $this->authentication->session_table;
-		$this->user_table = $this->authentication->user_table;
-		$this->username_column = $this->authentication->username_column;
-		$this->name = $this->authentication->name;
-		$this->userid_column = $this->authentication->userid_column;
-		$this->lastLogin_column = $this->authentication->lastLogin_column;
+		if (
+			is_a($this->authentication, '\\TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication')
+			&& $this->subtype
+		) {
+			$this->session_table = $this->authentication->session_table;
+			$this->user_table = $this->authentication->user_table;
+			$this->username_column = $this->authentication->username_column;
+			$this->name = $this->authentication->name;
+			$this->userid_column = $this->authentication->userid_column;
+			$this->lastLogin_column = $this->authentication->lastLogin_column;
 
-		if ($this->subtype != $subtype) {
 			$this->db = $GLOBALS['TYPO3_DB'];
 			$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
 // TODO tk 2013-09-06 cache field list
+
+			return TRUE;
 		}
-		return TRUE;
+
+		return FALSE;
 	}
 
 
