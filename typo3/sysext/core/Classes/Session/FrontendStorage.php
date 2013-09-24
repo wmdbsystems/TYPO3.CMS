@@ -1,5 +1,6 @@
 <?php
 namespace TYPO3\CMS\Core\Session;
+use TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication;
 
 /***************************************************************
  *  Copyright notice
@@ -28,12 +29,26 @@ namespace TYPO3\CMS\Core\Session;
 class FrontendStorage extends ClassicStorage {
 
 	/**
+	 * @var string $subtype the service subtype
+	 */
+	protected $subtype = 'frontend';
+
+	/**
 	 * Checks DB connection
 	 * @return bool|void
 	 */
 	public function init() {
-		$this->subtype = $this->info['requestedServiceSubType'];
-		$this->authentication = $GLOBALS['TSFE']->fe_user;
+		if ($this->subtype !== $this->info['requestedServiceSubType']) {
+			return FALSE;
+		}
+		/** @see \TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication::__construct() **/
+		$this->session_table = 'fe_sessions';
+		$this->user_table = 'fe_users';
+		$this->username_column = 'username';
+		$this->name = \TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication::getCookieName();
+		$this->userid_column = 'uid';
+		$this->lastLogin_column = 'lastlogin';
+
 		return parent::init();
 	}
 }

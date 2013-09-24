@@ -83,25 +83,14 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	 * @return bool|void
 	 */
 	public function init() {
-		if (
-			is_a($this->authentication, '\\TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication')
-			&& $this->subtype
-		) {
-			$this->session_table = $this->authentication->session_table;
-			$this->user_table = $this->authentication->user_table;
-			$this->username_column = $this->authentication->username_column;
-			$this->name = $this->authentication->name;
-			$this->userid_column = $this->authentication->userid_column;
-			$this->lastLogin_column = $this->authentication->lastLogin_column;
-
-			$this->db = $GLOBALS['TYPO3_DB'];
-			$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
+		if (!$this->session_table) {
+			return FALSE;
+		}
+		$this->db = $GLOBALS['TYPO3_DB'];
+		$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
 // TODO tk 2013-09-06 cache field list
 
-			return TRUE;
-		}
-
-		return FALSE;
+		return $this->dbFields && parent::init();
 	}
 
 

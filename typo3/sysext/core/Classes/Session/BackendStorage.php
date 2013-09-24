@@ -28,12 +28,26 @@ namespace TYPO3\CMS\Core\Session;
 class BackendStorage extends ClassicStorage {
 
 	/**
+	 * @var string $subtype the service subtype
+	 */
+	protected $subtype = 'backend';
+
+	/**
 	 * Checks DB connection
 	 * @return bool|void
 	 */
 	public function init() {
-		$this->subtype = $this->info['requestedServiceSubType'];
-		$this->authentication = $GLOBALS['BE_USER'];
+		if ($this->subtype !== $this->info['requestedServiceSubType']) {
+			return FALSE;
+		}
+		/** @see \TYPO3\CMS\Core\Authentication\BackendUserAuthentication **/
+		$this->session_table = 'be_sessions';
+		$this->user_table = 'be_users';
+		$this->username_column = 'username';
+		$this->name = \TYPO3\CMS\Core\Authentication\BackendUserAuthentication::getCookieName();
+		$this->userid_column = 'uid';
+		$this->lastLogin_column = 'lastlogin';
+
 		return parent::init();
 	}
 }
