@@ -27,7 +27,6 @@ namespace TYPO3\CMS\Frontend\Authentication;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-use TYPO3\CMS\Core\Session;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -112,9 +111,6 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 
 	protected $sessionDataTimestamp = NULL;
 
-	/** @var  \TYPO3\CMS\Core\Session\StorageInterface $sessionStorage */
-	protected $sessionStorage;
-
 	/**
 	 * Default constructor.
 	 */
@@ -143,14 +139,6 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 		$this->sendNoCacheHeaders = FALSE;
 		$this->getFallBack = TRUE;
 		$this->getMethodEnabled = TRUE;
-
-		/** @var Session\StorageInterface $storage */
-		$storage = GeneralUtility::makeInstanceService('sessionStorage', 'frontend');
-		if (is_object($storage)) {
-			$this->sessionStorage = $storage;
-		} else {
-			GeneralUtility::devLog('Could not instantiate session StorageInterface.', 'frontend', $storage);
-		}
 	}
 
 	/**

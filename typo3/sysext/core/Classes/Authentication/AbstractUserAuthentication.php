@@ -390,28 +390,7 @@ abstract class AbstractUserAuthentication {
 			GeneralUtility::devLog('## Beginning of auth logging.', 'TYPO3\\CMS\\Core\\Authentication\\AbstractUserAuthentication');
 		}
 
-		// initialize storage backend
-		if (!$this->sessionStorage) {
-			$subType = NULL;
-			switch ($this->session_table) {
-				case 'fe_sessions':
-					$subType = 'frontend';
-					break;
-				case 'be_sessions':
-					$subType = 'backend';
-					break;
-				default:
-					// no fallback
-					break;
-			}
-			if ($subType) {
-				/** @var Session\StorageInterface $storage */
-				$storage = GeneralUtility::makeInstanceService('sessionStorage', $subType);
-				if (is_object($storage)) {
-					$this->sessionStorage = $storage;
-				}
-			}
-		}
+		$this->initializeSessionStorage();
 
 		// Init vars.
 		$mode = '';
@@ -511,6 +490,40 @@ abstract class AbstractUserAuthentication {
 		// If we're lucky we'll get to clean up old sessions....
 		if (rand() % 100 <= $this->gc_probability) {
 			$this->gc();
+		}
+	}
+
+	/**
+	 * Initializes or injects session storage.
+	 *
+	 * @param Session\StorageInterface $storage
+	 * @retun void
+	 * @throws
+	 */
+	protected function initializeSessionStorage(Session\StorageInterface $storage = NULL) {
+		// initialize storage backend
+		if (!$this->sessionStorage) {
+			if (is_null($storage)) {
+				$subType = '';
+				switch ($this->loginType) {
+					case 'FE':
+						$subType = 'frontend';
+						break;
+					case 'BE':
+						$subType = 'backend';
+						break;
+					default:
+						// no fallback
+						break;
+				}
+				if ($subType) {
+					/** @var Session\StorageInterface $storage */
+					$storage = GeneralUtility::makeInstanceService('sessionStorage', $subType);
+				}
+			}
+			if ($storage instanceof Session\StorageInterface) {
+				$this->sessionStorage = $storage;
+			}
 		}
 	}
 
