@@ -1002,9 +1002,8 @@ abstract class AbstractUserAuthentication {
 						}
 						if ($timeout > 0 && !$skipSessionUpdate) {
 							$session->setTimeout($GLOBALS['EXEC_TIME'] + $timeout);
-							$content = $session->getContent();
-							$content['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
-							$session->setContent($content);
+							$sessionData['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
+							$session->setContent($sessionData);
 							$this->sessionStorage->put($session);
 							$user['ses_tstamp'] = $session->getTimeout();
 						}
@@ -1361,10 +1360,12 @@ abstract class AbstractUserAuthentication {
 		if ($this->sessionStorage) {
 			/** @var Session\Data $session */
 			$session = $this->sessionStorage->get($this->id);
-			$content = $session->getContent();
-			$content['ses_data'] = $this->user['ses_data'];
-			$session->setContent($content);
-			$this->sessionStorage->put($session);
+			if ($session) {
+				$content = $session->getContent();
+				$content['ses_data'] = $this->user['ses_data'];
+				$session->setContent($content);
+				$this->sessionStorage->put($session);
+			}
 		} else {
 			$GLOBALS['TYPO3_DB']->exec_UPDATEquery($this->session_table, 'ses_id=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->user['ses_id'], $this->session_table), array('ses_data' => $this->user['ses_data']));
 		}
