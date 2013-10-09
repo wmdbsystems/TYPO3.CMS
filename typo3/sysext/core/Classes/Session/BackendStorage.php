@@ -32,22 +32,16 @@ class BackendStorage extends ClassicStorage {
 	 */
 	protected $subtype = 'backend';
 
+	/** @see \TYPO3\CMS\Core\Authentication\BackendUserAuthentication **/
+	protected $session_table = 'be_sessions';
+
 	/**
-	 * Checks DB connection
-	 * @return bool|void
+	 * Sets specific configuration for frontend storage
+	 * @return bool
 	 */
 	public function init() {
-		if ($this->subtype !== $this->info['requestedServiceSubType']) {
-			return FALSE;
-		}
-		/** @see \TYPO3\CMS\Core\Authentication\BackendUserAuthentication **/
-		$this->session_table = 'be_sessions';
-		$this->user_table = 'be_users';
-		$this->username_column = 'username';
 		$this->name = \TYPO3\CMS\Core\Authentication\BackendUserAuthentication::getCookieName();
-		$this->userid_column = 'uid';
-		$this->lastLogin_column = 'lastlogin';
-
 		return parent::init();
 	}
+
 }

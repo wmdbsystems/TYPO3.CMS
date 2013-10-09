@@ -33,22 +33,15 @@ class FrontendStorage extends ClassicStorage {
 	 */
 	protected $subtype = 'frontend';
 
+	/** @see \TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication::__construct() **/
+	protected $session_table = 'fe_sessions';
+
 	/**
-	 * Checks DB connection
-	 * @return bool|void
+	 * Sets specific configuration for frontend storage
+	 * @return bool
 	 */
 	public function init() {
-		if ($this->subtype !== $this->info['requestedServiceSubType']) {
-			return FALSE;
-		}
-		/** @see \TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication::__construct() **/
-		$this->session_table = 'fe_sessions';
-		$this->user_table = 'fe_users';
-		$this->username_column = 'username';
 		$this->name = \TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication::getCookieName();
-		$this->userid_column = 'uid';
-		$this->lastLogin_column = 'lastlogin';
-
 		return parent::init();
 	}
 }

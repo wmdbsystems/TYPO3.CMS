@@ -50,28 +50,9 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	protected $session_table;
 
 	/**
-	 * @var string $user_table Table in database with userdata
-	 */
-	protected $user_table = '';
-
-	/**
-	 * @var string $username_column Column for login-name
-	 */
-	protected $username_column = '';
-
-	/**
 	 * @var string $name cookie name
 	 */
 	protected $name = '';
-
-	/**
-	 * @var string $userid_column Column for user-id (= cookie value)
-	 */
-	protected $userid_column = '';
-	/**
-	 * @var string $lastlogin_column
-	 */
-	protected $lastLogin_column = '';
 
 	/**
 	 * @var array $dbFields list of DB fields
@@ -79,16 +60,34 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	protected $dbFields = array();
 
 	/**
-	 * Checks DB connection
-	 * @return bool|void
+	 * @var string $contentField DB field for session content
+	 */
+	protected $contentField = 'ses_data';
+
+	/**
+	 * @var string $identifierField DB field for session identifier (= cookie value)
+	 */
+	protected $identifierField = 'ses_id';
+
+	/**
+	 * @var string $timestampField
+	 */
+	protected $timestampField = 'ses_tstamp';
+
+	/**
+	 * Checks subtype specific attributes and DB connection and metadata
+	 *
+	 * @return boolean
 	 */
 	public function init() {
 		if (!$this->session_table) {
 			return FALSE;
 		}
+		if ($this->subtype !== $this->info['requestedServiceSubType']) {
+			return FALSE;
+		}
 		$this->db = $GLOBALS['TYPO3_DB'];
-		$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
-// TODO tk 2013-09-06 cache field list
+		$this->initializeDbFields();
 
 		return $this->dbFields && parent::init();
 	}
@@ -109,7 +108,7 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 		$row = $statement->fetch(\TYPO3\CMS\Core\Database\PreparedStatement::FETCH_ASSOC);
 		$statement->free();
 		$sessionData = NULL;
-		if (is_array($row) && $row['ses_id'] === $identifier) {
+		if (is_array($row) && $row[$this->identifierField] === $identifier) {
 			$sessionData = $this->createDataObject($row);
 		}
 		return $sessionData;
@@ -124,7 +123,7 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	public function put(Data $sessionData) {
 		$insertFields = $this->extractDatabaseValues($sessionData);
 		$id = $sessionData->getIdentifier();
-		if ($this->get($id) instanceof \TYPO3\CMS\Core\Session\Data) {
+		if ($this->get($id) instanceof Data) {
 			unset(
 				$insertFields['ses_id'],
 				$insertFields['ses_name'],
@@ -208,5 +207,15 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 // TODO tk 2013-09-06 check necessity and validity of setting timeout here
 //		$sessionData->setTimeout((int)$values['ses_tstamp'] + (int)$this->authentication->auth_timeout_field);
 		return $sessionData;
+	}
+
+	/**
+	 * Fetches field list from current session table
+	 *
+	 * @return void
+	 */
+	protected function initializeDbFields() {
+// TODO tk 2013-09-06 cache field list?
+		$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
 	}
 }
