@@ -40,6 +40,7 @@ class SwitchBackUserHook {
 	 * @param array $params
 	 * @param \TYPO3\CMS\Core\Authentication\AbstractUserAuthentication $that
 	 * @see \TYPO3\CMS\Core\Authentication\AbstractUserAuthentication
+	 * @fixme tk 2013-10-09 use session storage API
 	 */
 	public function switchBack($params, $that) {
 		// Is a backend session handled?

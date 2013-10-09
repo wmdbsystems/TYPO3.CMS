@@ -30,6 +30,7 @@ namespace TYPO3\CMS\Beuser\Domain\Repository;
  * Repository for Tx_Beuser_Domain_Model_BackendUser
  *
  * @author Felix Kopp <felix-source@phorax.com>
+ * @FIXME tk 2013-10-08 refactor to use session storage instead
  */
 class BackendUserSessionRepository extends \TYPO3\CMS\Extbase\Persistence\Repository {
 
@@ -39,6 +40,7 @@ class BackendUserSessionRepository extends \TYPO3\CMS\Extbase\Persistence\Reposi
 	 *
 	 * @param \TYPO3\CMS\Beuser\Domain\Model\BackendUser $backendUser
 	 * @return array
+	 * @fixme tk 2013-10-09 use session storage API
 	 */
 	public function findByBackendUser(\TYPO3\CMS\Beuser\Domain\Model\BackendUser $backendUser) {
 		$sessions = array();

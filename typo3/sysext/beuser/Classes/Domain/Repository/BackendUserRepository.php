@@ -106,6 +106,7 @@ class BackendUserRepository extends \TYPO3\CMS\Extbase\Domain\Repository\Backend
 	 * Find Backend Users currently online
 	 *
 	 * @return \TYPO3\CMS\Extbase\Persistence\Generic\QueryResult<\TYPO3\CMS\Beuser\Domain\Model\BackendUser>
+	 * @fixme tk 2013-10-09 use session storage API
 	 */
 	public function findOnline() {
 		$uids = array();

@@ -133,6 +133,7 @@ class BackendUserController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionCont
 	 * Views all currently logged in BackendUsers and their sessions
 	 *
 	 * @return void
+	 * @FIXME tk 2013-10-08 use session storage to find BE users
 	 */
 	public function onlineAction() {
 		$onlineUsersAndSessions = array();
@@ -192,6 +193,7 @@ class BackendUserController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionCont
 	 * @param \TYPO3\CMS\Beuser\Domain\Model\BackendUser $backendUser
 	 * @param string $sessionId
 	 * @return void
+	 * @fixme tk 2013-10-09 use session storage API
 	 */
 	protected function terminateBackendUserSessionAction(\TYPO3\CMS\Beuser\Domain\Model\BackendUser $backendUser, $sessionId) {
 		$GLOBALS['TYPO3_DB']->exec_DELETEquery(
@@ -211,6 +213,7 @@ class BackendUserController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionCont
 	 * @param string $switchUser BE-user record that will be switched to
 	 * @param boolean $switchBack
 	 * @return void
+	 * @fixme tk 2013-10-09 use session storage API
 	 */
 	protected function switchUser($switchUser, $switchBack = FALSE) {
 		$targetUser = \TYPO3\CMS\Backend\Utility\BackendUtility::getRecord('be_users', $switchUser);
