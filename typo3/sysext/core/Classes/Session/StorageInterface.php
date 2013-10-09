@@ -57,6 +57,7 @@ interface StorageInterface {
 	 *
 	 * @param string $identifier the session ID
 	 * @return boolean TRUE on success
+	 * @todo tk 2013-10-09 can the session object be used as parameter?
 	 */
 	public function delete($identifier);
 
@@ -66,6 +67,14 @@ interface StorageInterface {
 	 * @return void
 	 */
 	public function collectGarbage();
+
+	/**
+	 * Defines lifetime of sessions for the storage
+	 *
+	 * @param $lifetime integer session lifetime in seconds
+	 * @return void
+	 */
+	public function setSessionLifetime($lifetime);
 
 
 }

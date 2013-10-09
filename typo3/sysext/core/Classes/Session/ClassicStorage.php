@@ -40,9 +40,9 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	protected $subtype;
 
 	/**
-	 * @var \TYPO3\CMS\Core\Authentication\AbstractUserAuthentication
+	 * @var integer session lifetime in seconds
 	 */
-	protected $authentication;
+	public $lifetime;
 
 	/**
 	 * @var string $session_table DB table for session data
@@ -102,9 +102,15 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	 * @return Data session data object
 	 */
 	public function get($identifier) {
-// TODO tk 2013-09-06 refactor DB handling (no prepared statement required here)
-		$statement = $this->db->prepare_SELECTquery('*', $this->session_table, 'ses_id = :ses_id');
-		$statement->execute(array(':ses_id' => $identifier));
+		static $statement;
+		if (!$statement) {
+			$condition = $this->identifierField . ' = :ses_id AND ' . 'ses_name = :ses_name';
+			$statement = $this->db->prepare_SELECTquery('*', $this->session_table, $condition);
+		}
+		$statement->execute(array(
+			':ses_id' => $identifier,
+			':ses_name' => $this->name
+		));
 		$row = $statement->fetch(\TYPO3\CMS\Core\Database\PreparedStatement::FETCH_ASSOC);
 		$statement->free();
 		$sessionData = NULL;
@@ -131,14 +137,15 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 				$insertFields['ses_hashlock'],
 				$insertFields['ses_userid']
 			);
-			$this->db->exec_UPDATEquery(
+			$result = $this->db->exec_UPDATEquery(
 				$this->session_table,
 				'ses_id = ' . $this->db->fullQuoteStr($id, $this->session_table),
 				$insertFields
 			);
 		} else {
-			$this->db->exec_INSERTquery($this->session_table, $insertFields);
+			$result = $this->db->exec_INSERTquery($this->session_table, $insertFields);
 		}
+		return (bool)$result;
 	}
 
 	/**
@@ -150,8 +157,8 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	public function delete($identifier) {
 		$result = $this->db->exec_DELETEquery(
 			$this->session_table,
-			'ses_id = ' . $this->db->fullQuoteStr($identifier, $this->session_table)
-			. ' AND ses_name = ' . $this->db->fullQuoteStr($this->name, $this->session_table)
+			$this->identifierField . ' = ' . $this->db->fullQuoteStr($identifier, $this->session_table)
+				. ' AND ses_name = ' . $this->db->fullQuoteStr($this->name, $this->session_table)
 		);
 		return (boolean) $result;
 	}
@@ -164,8 +171,8 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	public function collectGarbage() {
 		$this->db->exec_DELETEquery(
 			$this->session_table,
-			'ses_tstamp < ' . intval(($GLOBALS['EXEC_TIME'] - $this->authentication->gc_time))
-				. ' AND ses_name = ' . $this->db->fullQuoteStr($this->name, $this->session_table)
+			$this->timestampField . ' < ' . intval($GLOBALS['EXEC_TIME'] - $this->lifetime)
+			. ' AND ses_name = ' . $this->db->fullQuoteStr($this->name, $this->session_table)
 		);
 	}
 
@@ -182,15 +189,18 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	 */
 	protected function extractDatabaseValues(Data $sessionData) {
 		$content = $sessionData->getContent();
-		$result = array();
-		foreach($this->dbFields as $field) {
-			if (isset($content[$field])) {
-				$result[$field] = $content[$field];
+		$dbValues = array();
+		if ($content){
+			foreach($this->dbFields as $field) {
+				if (isset($content[$field])) {
+					$dbValues[$field] = $content[$field];
+				}
 			}
 		}
-		$result['ses_id'] = $sessionData->getIdentifier();
-		$result['ses_name'] = $this->name;
-		return $result;
+		$dbValues[$this->identifierField] = $sessionData->getIdentifier();
+		$dbValues['ses_name'] = $this->name;
+		$dbValues[$this->timestampField] = $sessionData->getTimeout() - $this->lifetime;
+		return $dbValues;
 	}
 
 	/**
@@ -202,10 +212,9 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	protected function createDataObject($values) {
 		/** @var \TYPO3\CMS\Core\Session\Data $sessionData */
 		$sessionData = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
-		$sessionData->setIdentifier($values['ses_id']);
 		$sessionData->setContent($values);
-// TODO tk 2013-09-06 check necessity and validity of setting timeout here
-//		$sessionData->setTimeout((int)$values['ses_tstamp'] + (int)$this->authentication->auth_timeout_field);
+		$sessionData->setIdentifier($values[$this->identifierField]);
+		$sessionData->setTimeout($values[$this->timestampField] + $this->lifetime);
 		return $sessionData;
 	}
 
@@ -218,4 +227,20 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 // TODO tk 2013-09-06 cache field list?
 		$this->dbFields = array_keys($this->db->admin_get_fields($this->session_table));
 	}
+
+	/**
+	 * Defines lifetime of sessions for the storage
+	 *
+	 * @param $lifetime integer session lifetime in seconds
+	 * @return void
+	 * @throws \InvalidArgumentException
+	 */
+	public function setSessionLifetime($lifetime) {
+		if (!\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($lifetime)) {
+			throw new \InvalidArgumentException('Session lifetime must be set as integer, not as ' . (is_object($lifetime) ? get_class($lifetime) : gettype($lifetime) ));
+		}
+		$this->lifetime = intval($lifetime);
+	}
+
+
 }

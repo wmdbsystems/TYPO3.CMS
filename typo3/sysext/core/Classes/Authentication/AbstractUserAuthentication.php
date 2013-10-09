@@ -523,6 +523,9 @@ abstract class AbstractUserAuthentication {
 			}
 			if ($storage instanceof Session\StorageInterface) {
 				$this->sessionStorage = $storage;
+				$this->sessionStorage->setSessionLifetime(
+					\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field) ? $this->auth_timeout_field : 3600
+				);
 			}
 		}
 	}

@@ -28,6 +28,7 @@ namespace TYPO3\CMS\Frontend\Authentication;
  ***************************************************************/
 
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Session;
 
 /**
  * Extension class for Front End User Authentication.
@@ -172,6 +173,17 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 		}
 		parent::start();
 	}
+
+	/**
+	 * @param Session\StorageInterface $storage
+	 */
+	protected function initializeSessionStorage(Session\StorageInterface $storage = NULL) {
+		parent::initializeSessionStorage($storage);
+		if ($this->sessionStorage) {
+			$this->sessionStorage->setSessionLifetime($this->sessionDataLifetime);
+		}
+	}
+
 
 	/**
 	 * Returns a new session record for the current user for insertion into the DB.
