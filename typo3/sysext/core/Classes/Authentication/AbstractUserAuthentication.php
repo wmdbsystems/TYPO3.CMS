@@ -1674,6 +1674,3 @@ abstract class AbstractUserAuthentication {
 	}
 
 }
-
-
-?>

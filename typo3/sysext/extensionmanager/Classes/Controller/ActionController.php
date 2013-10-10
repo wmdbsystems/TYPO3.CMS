@@ -47,6 +47,12 @@ class ActionController extends \TYPO3\CMS\Extensionmanager\Controller\AbstractCo
 	protected $fileHandlingUtility;
 
 	/**
+	 * @var \TYPO3\CMS\Extensionmanager\Utility\ExtensionModelUtility
+	 * @inject
+	 */
+	protected $extensionModelUtility;
+
+	/**
 	 * @var \TYPO3\CMS\Extensionmanager\Service\ExtensionManagementService
 	 * @inject
 	 */
@@ -59,25 +65,27 @@ class ActionController extends \TYPO3\CMS\Extensionmanager\Controller\AbstractCo
 	 */
 	protected function toggleExtensionInstallationStateAction($extension) {
 		$installedExtensions = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::getLoadedExtensionListArray();
-		if (in_array($extension, $installedExtensions)) {
-			// uninstall
-			try {
+		try {
+			if (in_array($extension, $installedExtensions)) {
+				// uninstall
 				$this->installUtility->uninstall($extension);
-			} catch (\TYPO3\CMS\Extensionmanager\Exception\ExtensionManagerException $e) {
-				$flashMessage = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(
-					'TYPO3\\CMS\\Core\\Messaging\\FlashMessage',
-					htmlspecialchars($e->getMessage()),
-					'',
-					\TYPO3\CMS\Core\Messaging\FlashMessage::ERROR,
-					TRUE
+			} else {
+				// install
+				$this->managementService->resolveDependenciesAndInstall(
+					$this->extensionModelUtility->mapExtensionArrayToModel(
+						$this->installUtility->enrichExtensionWithDetails($extension)
+					)
 				);
-				$this->getControllerContext()->getFlashMessageQueue()->enqueue($flashMessage);
 			}
-		} else {
-			// install
-			$this->managementService->resolveDependenciesAndInstall(
-				$this->installUtility->enrichExtensionWithDetails($extension)
+		} catch (\TYPO3\CMS\Extensionmanager\Exception\ExtensionManagerException $e) {
+			$flashMessage = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(
+				'TYPO3\\CMS\\Core\\Messaging\\FlashMessage',
+				htmlspecialchars($e->getMessage()),
+				'',
+				\TYPO3\CMS\Core\Messaging\FlashMessage::ERROR,
+				TRUE
 			);
+			$this->getControllerContext()->getFlashMessageQueue()->enqueue($flashMessage);
 		}
 		$this->redirect('index', 'List', NULL, array(self::TRIGGER_RefreshModuleMenu => TRUE));
 	}
@@ -131,4 +139,3 @@ class ActionController extends \TYPO3\CMS\Extensionmanager\Controller\AbstractCo
 		$this->fileHandlingUtility->sendSqlDumpFileToBrowserAndDelete($filePath, $fileName);
 	}
 }
-?>

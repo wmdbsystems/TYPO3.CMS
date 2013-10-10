@@ -63,5 +63,3 @@ class BackendUserSessionRepository extends \TYPO3\CMS\Extbase\Persistence\Reposi
 	}
 
 }
-
-?>

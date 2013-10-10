@@ -5509,16 +5509,6 @@ class Tx_Install_Updates_File_TtContentUploadsUpdateWizard extends \TYPO3\CMS\In
 /**
  * @deprecated since 6.0 will be removed in 7.0
  */
-class tx_lang_clearcachemenu extends \TYPO3\CMS\Lang\ClearLanguageCacheMenuItem {}
-
-/**
- * @deprecated since 6.0 will be removed in 7.0
- */
-class tx_lang_clearcache extends \TYPO3\CMS\Lang\LanguageCacheClearer {}
-
-/**
- * @deprecated since 6.0 will be removed in 7.0
- */
 class language extends \TYPO3\CMS\Lang\LanguageService {}
 
 /**
@@ -6605,4 +6595,3 @@ class Tx_Workspaces_Service_AutoPublishTask extends \TYPO3\CMS\Workspaces\Task\A
  * @deprecated since 6.0 will be removed in 7.0
  */
 class Tx_Workspaces_Service_CleanupPreviewLinkTask extends \TYPO3\CMS\Workspaces\Task\CleanupPreviewLinkTask {}
-?>

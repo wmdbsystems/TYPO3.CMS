@@ -661,6 +661,3 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	}
 
 }
-
-
-?>

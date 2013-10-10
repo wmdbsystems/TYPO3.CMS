@@ -42,8 +42,6 @@ return array(
 		'im_path' => '/usr/bin/',						// Path to the IM tools 'convert', 'combine', 'identify'.
 		'im_path_lzw' => '/usr/bin/',					// Path to the IM tool 'convert' with LZW enabled! See 'gif_compress'. If your version 4.2.9 of ImageMagick is compiled with LZW you may leave this field blank AND disable the flag 'gif_compress'! Tip: You can call LZW 'convert' with a prefix like 'myver_convert' by setting this path with it, eg. '/usr/bin/myver_' instead of just '/usr/bin/'.
 		'im_version_5' => 'im6',						// String: Set this either to "im6" or "gm" (uses GraphicsMagick instead of ImageMagick). Setting this value will automatically configure some settings for use with the specified program version.
-		'im_negate_mask' => FALSE,						// Boolean: Indicates if the mask images should be inverted first. This depends of the ImageMagick version. Below ver. 5.1 this should be FALSE. Above ImageMagick version 5.2+ it should be TRUE. Just set the flag if the masks works opposite the intension!
-		'im_imvMaskState' => FALSE,						// Boolean: If set, the 'im_negate_mask' state is inverted. This is very useful with newer versions of IM5 (at least 5.4.3+) where the 'im_version_5' setting will set 'im_negate_mask' which will eventually be wrong... Halleluja for ImageMagick - have I ever regreted using that package...
 		'im_v5effects' => 0,							// <p>Integer (-1, 0, 1)</p><dl><dt>0</dt><dd>disabled</dd><dt>-1</dt><dd>Do not sharpen images by default</dd><dt>1</dt><dd>All; blur and sharpening is allowed in ImageMagick.</dd></dl>
 		'im_mask_temp_ext_gif' => FALSE,				// Boolean: This should be set if ImageMagick is version 5+. This is used in class.tslib_content.php for masking images and the extension png is normally used because it's faster than gif for temporary files. But png seems not to work with some IM 5+ versions, so...
 		'im_noScaleUp' => FALSE,						// Boolean: If set, images are not being scaled up if told so (in t3lib/stdgraphics.php)
@@ -59,10 +57,6 @@ return array(
 	'SYS' => array(
 		// System related concerning both frontend and backend.
 		'lang' => array(
-			'cache' => array(
-				'lifetime' => 86400,
-				'clear_menu' => FALSE
-			),
 			'format' => array(
 				'priority' => 'xlf,xml,php'
 			),
@@ -172,8 +166,27 @@ return array(
 					'frontend' => 'TYPO3\CMS\Core\Cache\Frontend\VariableFrontend',
 					'backend' => 'TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend',
 					'options' => array()
-				)
-			)
+				),
+				't3lib_l10n' => array(
+					'frontend' => 'TYPO3\CMS\Core\Cache\Frontend\VariableFrontend',
+					'backend' => 'TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend',
+					'options' => array(),
+				),
+				'extbase_object' => array(
+					'frontend' => 'TYPO3\CMS\Core\Cache\Frontend\VariableFrontend',
+					'backend' => 'TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend',
+					'options' => array(
+						'defaultLifetime' => 0,
+					),
+				),
+				'extbase_reflection' => array(
+					'frontend' => 'TYPO3\CMS\Core\Cache\Frontend\VariableFrontend',
+					'backend' => 'TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend',
+					'options' => array(
+						'defaultLifetime' => 0,
+					),
+				),
+			),
 		),
 		'defaultCategorizedTables' => 'pages,tt_content', // List of comma separated tables that are categorizable by default.
 		'displayErrors' => -1,		// <p>Integer (-1, 0, 1, 2). Configures whether PHP errors should be displayed.</p><dl><dt>0</dt><dd>Do not display any PHP error messages. Overrides the value of "exceptionalErrors" and sets it to 0 (= no errors are turned into exceptions), the configured "productionExceptionHandler" is used as exception handler</dd><dt>1</dt><dd>Display error messages with the registered errorhandler. The configured "debugExceptionHandler" is used as exception handler</dd><dt>2</dt><dd>Display errors only if client matches <a href="#SYS-devIPmask">[SYS][devIPmask]</a>. If devIPmask matches the users IP address  the configured "debugExceptionHandler" is used  for exceptions, if not "productionExceptionHandler" will be used</dd><dt>-1</dt><dd>Default setting. With this option, you can override the PHP setting "display_errors". If devIPmask matches the users IP address  the configured "debugExceptionHandler" is used  for exceptions, if not "productionExceptionHandler" will be used.</dd></dl>
@@ -753,4 +766,3 @@ return array(
 	),
 	'SVCONF' => array()
 );
-?>

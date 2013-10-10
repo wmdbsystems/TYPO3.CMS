@@ -74,11 +74,19 @@ abstract class AbstractAction {
 	 * @return string content
 	 */
 	protected function initializeHandle() {
-			// Count of failed status checks will be displayed in the left navigation menu
-		$statusCheck = $this->objectManager->get('TYPO3\\CMS\\Install\\SystemEnvironment\\Check');
-		$statusObjects = $statusCheck->getStatus();
+		/** @var \TYPO3\CMS\Install\Status\StatusUtility $statusUtility */
 		$statusUtility = $this->objectManager->get('TYPO3\\CMS\\Install\\Status\\StatusUtility');
-		$statusObjectsWithErrorStatus = $statusUtility->filterBySeverity($statusObjects, 'error');
+
+		// Count of failed environment checks are displayed in the left navigation menu
+		$environmentStatus = $this->objectManager->get('TYPO3\\CMS\\Install\\SystemEnvironment\\Check')->getStatus();
+		$environmentErrors = $statusUtility->filterBySeverity($environmentStatus, 'error');
+
+		// Count of folder structure errors are displayed in left navigation menu
+		/** @var $folderStructureFacade \TYPO3\CMS\Install\FolderStructure\StructureFacade */
+		$folderStructureFacade = $this->objectManager->get('TYPO3\\CMS\\Install\\FolderStructure\\DefaultFactory')->getStructure();
+		$folderStructureErrors = $statusUtility->filterBySeverity($folderStructureFacade->getStatus(), 'error');
+
+		// Context service distinguishes between standalone and backend context
 		$contextService = $this->objectManager->get('TYPO3\\CMS\\Install\\Service\\ContextService');
 
 		$viewRootPath = GeneralUtility::getFileAbsFileName('EXT:install/Resources/Private/');
@@ -98,7 +106,8 @@ abstract class AbstractAction {
 			->assign('messages', $this->messages)
 			->assign('typo3Version', TYPO3_version)
 			->assign('siteName', $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'])
-			->assign('statusObjectsWithErrorStatus', $statusObjectsWithErrorStatus);
+			->assign('environmentErrors', $environmentErrors)
+			->assign('folderStructureErrors', $folderStructureErrors);
 	}
 
 	/**
@@ -229,4 +238,3 @@ abstract class AbstractAction {
 		return $saltFactory->getHashedPassword($password);
 	}
 }
-?>

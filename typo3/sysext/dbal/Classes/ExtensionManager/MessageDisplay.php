@@ -1,10 +1,10 @@
 <?php
-namespace TYPO3\CMS\Lang;
+namespace TYPO3\CMS\Dbal\ExtensionManager;
 
 /***************************************************************
  *  Copyright notice
  *
- *  (c) 2007-2013 Dominique Feyer <dominique.feyer@reelpeek.net>
+ *  (c) 2009-2013 Xavier Perseguers <xavier@typo3.org>
  *  All rights reserved
  *
  *  This script is part of the TYPO3 project. The TYPO3 project is
@@ -27,34 +27,31 @@ namespace TYPO3\CMS\Lang;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 /**
- * Extending class to render the menu for the cache clearing actions, and adding Clear lang/l10n cache option
+ * Class that renders fields for the Extension Manager configuration.
  *
- * @author Dominique Feyer <dominique.feyer@reelpeek.net>
+ * @author Xavier Perseguers <xavier@typo3.org>
  */
-class ClearLanguageCacheMenuItem implements \TYPO3\CMS\Backend\Toolbar\ClearCacheActionsHookInterface {
+class MessageDisplay {
 
 	/**
-	 * Add cache menu item
+	 * Renders a message for EM.
 	 *
-	 * @param array $cacheActions
-	 * @param array $optionValues
-	 * @return void
+	 * @return string
 	 */
-	public function manipulateCacheActions(&$cacheActions, &$optionValues) {
-		if ($GLOBALS['BE_USER']->isAdmin() || $GLOBALS['BE_USER']->getTSConfigVal('options.clearCache.clearLangCache')) {
-			// Add new cache menu item
-			$title = $GLOBALS['LANG']->sL('LLL:EXT:lang/hooks/clearcache/locallang.xlf:title');
-			$cacheActions[] = array(
-				'id' => 'clearLangCache',
-				'title' => $title,
-				'href' => $GLOBALS['BACK_PATH'] . 'ajax.php?ajaxID=lang::clearCache',
-				'icon' => '<span class="t3-icon t3-icon-actions t3-icon-actions-system t3-icon-system-cache-clear-impact-low"></span>'
-			);
-			$optionValues[] = 'clearLangCache';
-		}
+	public function displayMessage() {
+		$out = '
+			<div>
+				<div class="typo3-message message-information">
+					<div class="message-header">PostgreSQL</div>
+					<div class="message-body">
+						If you use a PostgreSQL database, make sure to run SQL scripts located in<br />
+						<tt>' . \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('dbal') . 'res/postgresql/</tt><br />
+						to ensure best compatibility with TYPO3.
+					</div>
+				</div>
+			</div>
+		';
+		return $out;
 	}
 
 }
-
-
-?>
