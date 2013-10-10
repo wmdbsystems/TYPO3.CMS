@@ -369,7 +369,7 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	 *
 	 ****************************************/
 	/**
-	 * Fetches the session data for the user (from the fe_session_data table) based on the ->id of the current user-session.
+	 * Fetches the session data for the user based on the ->id of the current user-session.
 	 * The session data is restored to $this->sesData
 	 * 1/100 calls will also do a garbage collection.
 	 *
@@ -403,7 +403,7 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	/**
 	 * Will write UC and session data.
 	 * If the flag $this->userData_change has been set, the function ->writeUC is called (which will save persistent user session data)
-	 * If the flag $this->sesData_change has been set, the fe_session_data table is updated with the content of $this->sesData
+	 * If the flag $this->sesData_change has been set, the session data is updated with the content of $this->sesData
 	 * If the $this->sessionDataTimestamp is NULL there was no session record yet, so we need to insert it into the database
 	 *
 	 * @return void
@@ -461,7 +461,16 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	 */
 	public function removeSessionData() {
 		if ($this->sessionStorage) {
-			$this->sessionStorage->delete($this->id);
+			$session = $this->sessionStorage->get($this->id);
+			if ($session){
+				$metaInfo = $session->getMetaInfo();
+				if(isset($metaInfo['ses_userid']) && $metaInfo['ses_userid'] > 0) {
+					$session->setContent(array());
+					$this->sessionStorage->put($session);
+				} else {
+					$this->sessionStorage->delete($this->id);
+				}
+			}
 		} else {
 			$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'hash=' . $GLOBALS['TYPO3_DB']->fullQuoteStr($this->id, 'fe_session_data'));
 		}
@@ -474,10 +483,8 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	 * @return void
 	 */
 	public function gc() {
-		$timeoutTimeStamp = intval($GLOBALS['EXEC_TIME'] - $this->sessionDataLifetime);
-		if ($this->sessionStorage) {
-			$this->sessionStorage->collectGarbage($timeoutTimeStamp);
-		} else {
+		if (!$this->sessionStorage) {
+			$timeoutTimeStamp = intval($GLOBALS['EXEC_TIME'] - $this->sessionDataLifetime);
 			$GLOBALS['TYPO3_DB']->exec_DELETEquery('fe_session_data', 'tstamp < ' . $timeoutTimeStamp);
 		}
 		parent::gc();
@@ -603,6 +610,23 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	}
 
 	/**
+	 * Rescue session data before logging out current FE user
+	 *
+	 * @return void
+	 */
+	public function logoff() {
+		if ($this->sessionStorage) {
+			if (($session = $this->sessionStorage->get($this->id))) {
+				if(empty($this->sesData)) {
+					$this->sesData = $session->getContent();
+				}
+				$this->sesData_change = TRUE;
+			}
+		}
+		parent::logoff();
+	}
+
+	/**
 	 * Determine whether there's an according session record to a given session_id
 	 * in the database. Don't care if session record is still valid or not.
 	 *
@@ -616,24 +640,16 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 		// Perform check in parent function
 		$count = parent::isExistingSessionRecord($id);
 		// Check if there are any fe_session_data records for the session ID the client claims to have
-		if ($count == FALSE) {
-// TODO tk 2013-08-27 move session storage variant to parent method
-			if ($this->sessionStorage) {
-				$sessionData = $this->sessionStorage->get($id);
-				if ($sessionData instanceof Session\Data) {
+		if ($count == FALSE && !$this->sessionStorage) {
+			$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('content,tstamp', 'fe_session_data', 'hash = :hash');
+			$res = $statement->execute(array(':hash' => $id));
+			if ($res !== FALSE) {
+				if ($sesDataRow = $statement->fetch()) {
 					$count = TRUE;
+					$this->sesData = unserialize($sesDataRow['content']);
+					$this->sessionDataTimestamp = $sesDataRow['tstamp'];
 				}
-			} else {
-				$statement = $GLOBALS['TYPO3_DB']->prepare_SELECTquery('content,tstamp', 'fe_session_data', 'hash = :hash');
-				$res = $statement->execute(array(':hash' => $id));
-				if ($res !== FALSE) {
-					if ($sesDataRow = $statement->fetch()) {
-						$count = TRUE;
-						$this->sesData = unserialize($sesDataRow['content']);
-						$this->sessionDataTimestamp = $sesDataRow['tstamp'];
-					}
-					$statement->free();
-				}
+				$statement->free();
 			}
 		}
 		return $count;

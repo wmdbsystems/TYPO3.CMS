@@ -973,7 +973,9 @@ abstract class AbstractUserAuthentication {
 				$content = $session->getContent();
 				$metaInfo = $session->getMetaInfo();
 				if (
-					(
+					// consider anonymous sessions
+					isset($metaInfo['ses_userid'])
+					&& (
 						$metaInfo['ses_iplock'] === '[DISABLED]'
 						|| $metaInfo['ses_iplock'] === $this->ipLockClause_remoteIPNumber($this->lockIP)
 					)

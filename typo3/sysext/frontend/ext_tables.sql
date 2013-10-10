@@ -56,6 +56,7 @@ CREATE TABLE fe_groups (
 	KEY parent (pid)
 );
 
+# @fixme tk 2013-10-10 drop table fe_session_data
 #
 # Table structure for table 'fe_session_data'
 #
