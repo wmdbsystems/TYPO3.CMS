@@ -498,7 +498,6 @@ abstract class AbstractUserAuthentication {
 	 *
 	 * @param Session\StorageInterface $storage
 	 * @retun void
-	 * @throws
 	 */
 	protected function initializeSessionStorage(Session\StorageInterface $storage = NULL) {
 		// initialize storage backend
@@ -937,14 +936,15 @@ abstract class AbstractUserAuthentication {
 	/**
 	 * Factory method for session data objects
 	 *
-	 * @param array $payload opt. contents of session
+	 * @param array $sessionData opt. contents of session
 	 * @return Session\Data
+	 * @FIXME tk 2013-10-08 check parameter name => should be $metaInfo???
 	 */
-	protected function createSession($payload = array()) {
+	protected function createSession($sessionData = array()) {
 		/** @var Session\Data $session */
 		$session = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
 		$session->setIdentifier($this->id);
-		$session->setContent($payload);
+		$session->setMetaInfo($sessionData);
 		// use short fallback timeout, will be overwritten when session is used, see fetchUserSession()
 		$session->setTimeout(
 			$GLOBALS['EXEC_TIME']
@@ -970,32 +970,34 @@ abstract class AbstractUserAuthentication {
 			/** @var Session\Data $session */
 			$session = $this->sessionStorage->get($this->id);
 			if ($session) {
-				$sessionData = $session->getContent();
+				$content = $session->getContent();
+				$metaInfo = $session->getMetaInfo();
 				if (
 					(
-						$sessionData['ses_iplock'] === '[DISABLED]'
-						|| $sessionData['ses_iplock'] === $this->ipLockClause_remoteIPNumber($this->lockIP)
+						$metaInfo['ses_iplock'] === '[DISABLED]'
+						|| $metaInfo['ses_iplock'] === $this->ipLockClause_remoteIPNumber($this->lockIP)
 					)
 					&& (
 						(
 							$GLOBALS['CLIENT']['BROWSER'] === 'flash'
 							&& GeneralUtility::_GP('vC') === $this->veriCode()
 						)
-						|| intval($sessionData['ses_hashlock']) === $this->hashLockClause_getHashInt()
+						|| intval($metaInfo['ses_hashlock']) === $this->hashLockClause_getHashInt()
 					)
 				) {
 					$user = $GLOBALS['TYPO3_DB']->exec_SELECTgetSingleRow(
 						'*',
 						$this->user_table,
-						$this->userid_column . '=' . intval($sessionData['ses_userid'])
+						$this->userid_column . '=' . intval($metaInfo['ses_userid'])
 							. ' ' . $this->user_where_clause()
 					);
 					if ($user) {
 						// merge session data into user array
 						$user = array_merge(
 							$user,
-							$sessionData
+							$metaInfo
 						);
+						$user['ses_data'] = serialize($content);
 						if (\TYPO3\CMS\Core\Utility\MathUtility::canBeInterpretedAsInteger($this->auth_timeout_field)) {
 							// Get timeout from object
 							$timeout = intval($this->auth_timeout_field);
@@ -1004,11 +1006,12 @@ abstract class AbstractUserAuthentication {
 							$timeout = intval($user[$this->auth_timeout_field]);
 						}
 						if ($timeout > 0 && !$skipSessionUpdate) {
-							$session->setTimeout($GLOBALS['EXEC_TIME'] + $timeout);
-							$sessionData['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
-							$session->setContent($sessionData);
+							$metaInfo['ses_tstamp'] = $GLOBALS['EXEC_TIME'];
+							$session->setTimeout($metaInfo['ses_tstamp'] + $timeout);
+							$session->setContent($content);
+							$session->setMetaInfo($metaInfo);
 							$this->sessionStorage->put($session);
-							$user['ses_tstamp'] = $session->getTimeout();
+							$user['ses_tstamp'] = $metaInfo['ses_tstamp'];
 						}
 					}
 				}

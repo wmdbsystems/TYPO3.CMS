@@ -188,18 +188,19 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	 * @return array
 	 */
 	protected function extractDatabaseValues(Data $sessionData) {
-		$content = $sessionData->getContent();
+		$metaInfo = $sessionData->getMetaInfo();
 		$dbValues = array();
-		if ($content){
+		if ($metaInfo){
 			foreach($this->dbFields as $field) {
-				if (isset($content[$field])) {
-					$dbValues[$field] = $content[$field];
+				if (isset($metaInfo[$field])) {
+					$dbValues[$field] = $metaInfo[$field];
 				}
 			}
 		}
+		$dbValues[$this->contentField] = serialize($sessionData->getContent());
 		$dbValues[$this->identifierField] = $sessionData->getIdentifier();
-		$dbValues['ses_name'] = $this->name;
 		$dbValues[$this->timestampField] = $sessionData->getTimeout() - $this->lifetime;
+		$dbValues['ses_name'] = $this->name;
 		return $dbValues;
 	}
 
@@ -212,9 +213,18 @@ abstract class ClassicStorage extends \TYPO3\CMS\Core\Service\AbstractService im
 	protected function createDataObject($values) {
 		/** @var \TYPO3\CMS\Core\Session\Data $sessionData */
 		$sessionData = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
-		$sessionData->setContent($values);
 		$sessionData->setIdentifier($values[$this->identifierField]);
 		$sessionData->setTimeout($values[$this->timestampField] + $this->lifetime);
+		// split up session data and meta information
+		$meta = array();
+		foreach($this->dbFields as $field) {
+			if ($field === $this->contentField) {
+				$sessionData->setContent(unserialize($values[$field]));
+			} else {
+				$meta[$field] = $values[$field];
+			}
+		}
+		$sessionData->setMetaInfo($meta);
 		return $sessionData;
 	}
 

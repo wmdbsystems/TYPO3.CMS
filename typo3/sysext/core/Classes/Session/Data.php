@@ -38,6 +38,11 @@ class Data {
 	protected $content = array();
 
 	/**
+	 * @var array $content additional session information
+	 */
+	protected $metaInfo = array();
+
+	/**
 	 * @var integer $timeout end of session lifetime (Unix epoche)
 	 */
 	protected $timeout = 0;
@@ -87,6 +92,20 @@ class Data {
 	 */
 	public function getTimeout() {
 		return $this->timeout;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function getMetaInfo() {
+		return $this->metaInfo;
+	}
+
+	/**
+	 * @param array $metaInfo
+	 */
+	public function setMetaInfo($metaInfo) {
+		$this->metaInfo = $metaInfo;
 	}
 
 }
