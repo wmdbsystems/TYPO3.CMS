@@ -1369,9 +1369,7 @@ abstract class AbstractUserAuthentication {
 			/** @var Session\Data $session */
 			$session = $this->sessionStorage->get($this->id);
 			if ($session) {
-				$content = $session->getContent();
-				$content['ses_data'] = $this->user['ses_data'];
-				$session->setContent($content);
+				$session->setContent($sesDat);
 				$this->sessionStorage->put($session);
 			}
 		} else {
