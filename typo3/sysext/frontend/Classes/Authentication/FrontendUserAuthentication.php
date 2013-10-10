@@ -101,14 +101,14 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 	public $sesData = array();
 
 	/**
-	 * @todo Define visibility
+	 * @var boolean indicates unsaved changes of session data
 	 */
-	public $sesData_change = 0;
+	protected $sesData_change = FALSE;
 
 	/**
-	 * @todo Define visibility
+	 * @var boolean indicates unsaved changes of user configuration
 	 */
-	public $userData_change = 0;
+	protected  $userData_change = FALSE;
 
 	protected $sessionDataTimestamp = NULL;
 
@@ -528,7 +528,7 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 						} else {
 							$this->uc[$key] = $data;
 						}
-						$this->userData_change = 1;
+						$this->userData_change = TRUE;
 					}
 					break;
 				case 'ses':
@@ -537,7 +537,7 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 					} else {
 						$this->sesData[$key] = $data;
 					}
-					$this->sesData_change = 1;
+					$this->sesData_change = TRUE;
 					break;
 			}
 		}
