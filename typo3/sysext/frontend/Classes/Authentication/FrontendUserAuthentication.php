@@ -422,14 +422,19 @@ class FrontendUserAuthentication extends \TYPO3\CMS\Core\Authentication\Abstract
 			} else {
 				if ($this->sessionStorage) {
 					$sessionDataTimestamp = $GLOBALS['EXEC_TIME'];
-					/** @var Session\Data $sessionData */
-					$sessionData = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Session\\Data');
-					$sessionData->setIdentifier($this->id);
-					$sessionData->setContent($this->sesData);
-					$sessionData->setTimeout($sessionDataTimestamp + $this->sessionDataLifetime);
-					if ($this->sessionStorage->put($sessionData)) {
-						$this->sessionDataTimestamp = $sessionDataTimestamp;
+					/** @var Session\Data $session */
+					$session = $this->sessionStorage->get($this->id);
+					if (!$session) {
+						$session = $this->createSession();
 					}
+					$session->setContent($this->sesData);
+					$session->setTimeout($sessionDataTimestamp + $this->sessionDataLifetime);
+					if ($this->sessionStorage->put($session)) {
+						$this->sessionDataTimestamp = $sessionDataTimestamp;
+						$this->sesData_change = FALSE;
+					}
+
+
 				} else {
 					if ($this->sessionDataTimestamp === NULL) {
 						// Write new session-data
