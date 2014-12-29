@@ -205,7 +205,12 @@ TBE_EDITOR.customEvalFunctions[\'' . $evalData . '\'] = function(value) {
 		$altItem .= '<input type="hidden" name="' . $additionalInformation['itemFormElName'] . '" value="' . htmlspecialchars($additionalInformation['itemFormElValue']) . '" />';
 		// Wrap a wizard around the item?
 		$item = $this->formEngine->renderWizards(array($item, $altItem), $config['wizards'], $table, $row, $field, $additionalInformation, $additionalInformation['itemFormElName'] . '_hr', $specConf);
-		return $item;
+		$this->view->assignMultiple([
+			'item' => $item,
+			'additionalInformation' => $additionalInformation,
+			'placeHolder' => $this->formEngine->getPlaceholderAttribute($table, $field, $config, $row)
+		]);
+		return $this->view->render();
 	}
 
 }

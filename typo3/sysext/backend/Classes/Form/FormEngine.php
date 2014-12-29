@@ -3626,13 +3626,14 @@ class FormEngine {
 	 */
 	public function intoTemplate($inArr, $altTemplate = '') {
 		// Put into template_
-		$fieldTemplateParts = explode('###FIELD_', $altTemplate ?: $this->fieldTemplate);
-		$out = current($fieldTemplateParts);
-		foreach ($fieldTemplateParts as $part) {
-			list($key, $val) = explode('###', $part, 2);
-			$out .= $inArr[$key];
-			$out .= $val;
-		}
+//		$fieldTemplateParts = explode('###FIELD_', $altTemplate ?: $this->fieldTemplate);
+//		$out = current($fieldTemplateParts);
+//		foreach ($fieldTemplateParts as $part) {
+//			list($key, $val) = explode('###', $part, 2);
+//			$out .= $inArr[$key];
+//			$out .= $val;
+//		}
+		$out = $inArr['ITEM'];
 		return $out;
 	}
 

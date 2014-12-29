@@ -18,6 +18,8 @@ use TYPO3\CMS\Backend\Form\FormEngine;
 use TYPO3\CMS\Backend\Template\DocumentTemplate;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\DatabaseConnection;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Fluid\View\StandaloneView;
 use TYPO3\CMS\Lang\LanguageService;
 
 /**
@@ -36,6 +38,11 @@ abstract class AbstractFormElement {
 	protected $formEngine;
 
 	/**
+	 * @var StandaloneView
+	 */
+	protected $view;
+
+	/**
 	 * @var bool If TRUE, the element will not be editable
 	 */
 	protected $renderReadonly = FALSE;
@@ -47,6 +54,11 @@ abstract class AbstractFormElement {
 	 */
 	public function __construct(FormEngine $formEngine) {
 		$this->formEngine = $formEngine;
+		$this->view = GeneralUtility::makeInstance(StandaloneView::class);
+		//@todo maybe cache this somewhere during runtime. Static var or something
+		$class = str_replace('TYPO3\\CMS\\Backend\\Form\\Element\\', '', get_class($this));
+		$templateName = GeneralUtility::getFileAbsFileName('EXT:backend/Resources/Private/Templates/Form/' . $class . '.html');
+		$this->view->setTemplatePathAndFilename($templateName);
 	}
 
 	/**
