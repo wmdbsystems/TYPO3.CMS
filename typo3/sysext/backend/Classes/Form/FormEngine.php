@@ -4639,7 +4639,7 @@ class FormEngine {
 
 		// Cleanup the string and support 'LLL:'
 		$value = htmlspecialchars(trim($this->getLanguageService()->sL($value)));
-		return empty($value) ? '' : ' placeholder="' . $value . '" ';
+		return empty($value) ? '' : $value;
 	}
 
 	/**

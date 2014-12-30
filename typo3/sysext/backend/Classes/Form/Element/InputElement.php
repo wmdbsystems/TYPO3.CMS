@@ -155,6 +155,7 @@ class InputElement extends AbstractFormElement {
 
 
 		$textFieldAttributes = array();
+		$dataAttributes = [];
 		// additional data for the DatePicker
 		if ($isDateField) {
 			// Add server timezone offset to UTC to our stored date
@@ -163,9 +164,11 @@ class InputElement extends AbstractFormElement {
 			}
 			if ($lowerValue !== NULL) {
 				$textFieldAttributes[] = 'data-date-minDate="' . strftime($dateFormat, $lowerValue) . '"';
+				$dataAttributes['date-minDate'] = strftime($dateFormat, $lowerValue);
 			}
 			if ($upperValue !== NULL) {
 				$textFieldAttributes[] = 'data-date-maxDate="' . strftime($dateFormat, $upperValue) . '"';
+				$dataAttributes['date-maxDate'] = strftime($dateFormat, $upperValue);
 			}
 			$cssClasses[] = 'form-control';
 		}
@@ -196,6 +199,7 @@ TBE_EDITOR.customEvalFunctions[\'' . $evalData . '\'] = function(value) {
 		if ($isDateField) {
 			$fieldAppendix = '<span class="input-group-addon datepickerbutton">' . IconUtility::getSpriteIcon('actions-edit-pick-date', array('style' => 'cursor:pointer;')) . '</span>';
 			$item = '<span class="t3-tceforms-input-wrapper-datetime date t3js-datetimepicker input-group">' . $item . $fieldAppendix . '</span>';
+			$cssClasses[] = 't3-tceforms-input-wrapper-datetime date t3js-datetimepicker';
 		} else {
 			$item = '<span class="t3-tceforms-input-wrapper">' . $item . '</span>';
 		}
@@ -208,7 +212,14 @@ TBE_EDITOR.customEvalFunctions[\'' . $evalData . '\'] = function(value) {
 		$this->view->assignMultiple([
 			'item' => $item,
 			'additionalInformation' => $additionalInformation,
-			'placeHolder' => $this->formEngine->getPlaceholderAttribute($table, $field, $config, $row)
+			'placeHolder' => $this->formEngine->getPlaceholderAttribute($table, $field, $config, $row),
+			'config' => $config,
+			'onChange' => $iOnChange,
+			'setup' => [
+				'isDateField' => $isDateField,
+				'cssClasses' => implode(' ', $cssClasses),
+				'dataAttributes' => $dataAttributes
+			]
 		]);
 		return $this->view->render();
 	}

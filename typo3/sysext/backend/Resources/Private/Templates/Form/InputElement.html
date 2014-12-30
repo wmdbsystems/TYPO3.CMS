@@ -1,4 +1,25 @@
-<div class="form-group">
+<div class="form-group has-feedback">
 	<label for="{additionalInformation.itemFormElID}">{additionalInformation.label}</label>
-	<f:form.textfield name="{additionalInformation.itemFormElName}_hr" id="{additionalInformation.itemFormElID}" class="form-control" placeholder="{placeHolder}" />
+	<div class="input-group">
+		<f:form.textfield
+				name="{additionalInformation.itemFormElName}_hr"
+				id="{additionalInformation.itemFormElID}"
+				value="{additionalInformation.itemFormElValue}"
+				class="{setup.cssClasses}"
+				placeholder="{placeHolder}"
+				size="{config.size}"
+				additionalAttributes="{onchange:onChange}"
+		        data="{setup.dataAttributes}"
+				/>
+		<span class="clearer glyphicon glyphicon-remove-circle form-control-feedback"></span>
+		<f:if condition="{setup.isDateField}">
+			<span class="input-group-addon datepickerbutton">
+				<f:be.buttons.icon icon="actions-edit-pick-date" title="" />
+			</span>
+		</f:if>
+		<f:form.hidden
+				name="{additionalInformation.itemFormElName}"
+				value="{additionalInformation.itemFormElValue}"
+				/>
+	</div>
 </div>
